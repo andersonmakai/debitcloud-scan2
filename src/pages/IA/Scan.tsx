@@ -1,59 +1,68 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
+import DashboardLayout from "../../layout/DashboardLayout";
+import { Button, Spinner, Card, Alert, Form } from "react-bootstrap";
 
 const MINDEE_API_KEY = "md_r3clwsbynacppnqxhix0aqn0lb5jh3jq";
 
 const Scan = () => {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const [result, setResult] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [resultadoJson, setResultadoJson] = useState<any | null>(null);
+  const [carregando, setCarregando] = useState(false);
 
-  const startCamera = async () => {
+  useEffect(() => {
+    iniciarCamera();
+    return () => pararCamera();
+  }, []);
+
+  const iniciarCamera = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
       }
     } catch (err) {
-      alert("Erro ao acessar a câmera");
+      alert("Erro ao acessar a câmera.");
     }
   };
 
-  const captureAndSend = async () => {
-    if (!canvasRef.current || !videoRef.current) return;
+  const pararCamera = () => {
+    if (videoRef.current && videoRef.current.srcObject) {
+      const tracks = (videoRef.current.srcObject as MediaStream).getTracks();
+      tracks.forEach((track) => track.stop());
+    }
+  };
 
-    const video = videoRef.current;
+  const capturarImagem = async () => {
+    if (!canvasRef.current || !videoRef.current) return;
     const canvas = canvasRef.current;
+    const video = videoRef.current;
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
 
-    const context = canvas.getContext("2d");
-    if (!context) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-    context.drawImage(video, 0, 0, canvas.width, canvas.height);
     canvas.toBlob(async (blob) => {
-      if (blob) {
-        await sendToMindee(blob);
-      }
+      if (blob) await enviarParaMindee(blob);
     }, "image/jpeg");
   };
 
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const enviarArquivo = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      await sendToMindee(file);
-    }
+    if (file) await enviarParaMindee(file);
   };
 
-  const sendToMindee = async (file: Blob) => {
-    setLoading(true);
-    setResult(null);
+  const enviarParaMindee = async (arquivo: Blob) => {
+    setCarregando(true);
+    setResultadoJson(null);
 
     const formData = new FormData();
-    formData.append("document", file);
+    formData.append("document", arquivo);
 
     try {
-      const res = await fetch("https://api.mindee.net/v1/products/mindee/invoice/v1/predict", {
+      const resposta = await fetch("https://api.mindee.net/v1/products/mindee/invoice/v1/predict", {
         method: "POST",
         headers: {
           Authorization: `Token ${MINDEE_API_KEY}`,
@@ -61,37 +70,68 @@ const Scan = () => {
         body: formData,
       });
 
-      const data = await res.json();
-      const rawText = JSON.stringify(data, null, 2);
-      setResult(rawText);
+      const dados = await resposta.json();
+      setResultadoJson(dados);
     } catch (err) {
-      alert("Erro ao enviar para o Mindee");
+      alert("Erro ao enviar para a API Mindee.");
     } finally {
-      setLoading(false);
+      setCarregando(false);
     }
   };
 
+  const extrairCampo = (nome: string) => {
+    return (
+      resultadoJson?.document?.inference?.prediction?.[nome]?.value ||
+      resultadoJson?.document?.inference?.prediction?.[nome]?.content ||
+      "—"
+    );
+  };
+
   return (
-    <div style={{ padding: "1rem" }}>
-      <h2>📸 Scanner Inteligente</h2>
+    <DashboardLayout>
+      <h3 className="mb-3">📸 Digitalização Inteligente de Documentos</h3>
 
-      <div style={{ marginBottom: "1rem" }}>
-        <button onClick={startCamera}>Ativar Câmera</button>
-        <button onClick={captureAndSend}>📷 Capturar</button>
-        <input type="file" accept=".pdf,image/*" onChange={handleFileChange} />
-      </div>
-
-      <video ref={videoRef} autoPlay playsInline style={{ width: "100%", maxHeight: "300px" }} />
-      <canvas ref={canvasRef} style={{ display: "none" }} />
-
-      {loading && <p>🔄 Processando...</p>}
-      {result && (
-        <div>
-          <h4>📄 Resultado:</h4>
-          <pre style={{ background: "#eee", padding: "1rem", whiteSpace: "pre-wrap" }}>{result}</pre>
+      <Card className="p-3 mb-4 shadow-sm">
+        <div className="d-flex flex-column flex-md-row gap-3 mb-3">
+          <Button onClick={capturarImagem} disabled={carregando}>
+            📷 Escanear com Câmera
+          </Button>
+          <Form.Control type="file" accept=".pdf,image/*" onChange={enviarArquivo} disabled={carregando} />
         </div>
+
+        <video
+          ref={videoRef}
+          autoPlay
+          playsInline
+          style={{ width: "100%", maxHeight: "50vh", borderRadius: "8px" }}
+        />
+        <canvas ref={canvasRef} style={{ display: "none" }} />
+      </Card>
+
+      {carregando && (
+        <Alert variant="info">
+          <Spinner size="sm" animation="border" /> Processando documento...
+        </Alert>
       )}
-    </div>
+
+      {resultadoJson && (
+        <>
+          <h5>📄 Detecção Automática</h5>
+          <Card className="p-3 mb-3">
+            <p><strong>Cliente:</strong> {extrairCampo("customer_name")}</p>
+            <p><strong>Data:</strong> {extrairCampo("date")}</p>
+            <p><strong>Fatura Nº:</strong> {extrairCampo("invoice_number")}</p>
+            <p><strong>Total:</strong> {extrairCampo("total_incl")}</p>
+            <p><strong>Moeda:</strong> {extrairCampo("locale")}</p>
+          </Card>
+
+          <h6 className="text-muted">JSON completo:</h6>
+          <pre style={{ background: "#f8f9fa", padding: "1rem", borderRadius: "6px", whiteSpace: "pre-wrap" }}>
+            {JSON.stringify(resultadoJson, null, 2)}
+          </pre>
+        </>
+      )}
+    </DashboardLayout>
   );
 };
 

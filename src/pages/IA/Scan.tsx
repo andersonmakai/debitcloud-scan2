@@ -1,14 +1,15 @@
 import React, { useRef, useState } from "react";
 
-// 🔐 Nova API Key correta da Mindee
-const MINDEE_API_KEY = "md_jchirghjomj0vgeud2qbv3v16lzgsngd";
+// 🔐 API Key da Mindee
+const MINDEE_API_KEY = "md_k194wkbtmcx1ihmhmodzzdwutht4fney";
 
 const Scan = () => {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const [result, setResult] = useState<string | null>(null);
+  const [result, setResult] = useState<any>(null);
   const [loading, setLoading] = useState(false);
 
+  // 🟢 Ativar câmera
   const startCamera = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ video: true });
@@ -20,6 +21,7 @@ const Scan = () => {
     }
   };
 
+  // 📸 Capturar imagem da câmera
   const captureAndSend = async () => {
     if (!canvasRef.current || !videoRef.current) return;
 
@@ -39,6 +41,7 @@ const Scan = () => {
     }, "image/jpeg");
   };
 
+  // 📂 Upload manual de arquivo
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -46,6 +49,7 @@ const Scan = () => {
     }
   };
 
+  // 🚀 Enviar para a Mindee
   const sendToMindee = async (file: Blob) => {
     setLoading(true);
     setResult(null);
@@ -72,8 +76,7 @@ const Scan = () => {
       }
 
       const data = await response.json();
-      const formatted = JSON.stringify(data, null, 2);
-      setResult(formatted);
+      setResult(data);
     } catch (err: any) {
       alert("Erro ao enviar para o Mindee: " + err.message);
     } finally {
@@ -81,9 +84,52 @@ const Scan = () => {
     }
   };
 
+  // 🔍 Extrair dados formatados do JSON da Mindee
+  const extractField = (fieldName: string) => {
+    return (
+      result?.document?.inference?.prediction?.[fieldName]?.value ||
+      "Não encontrado"
+    );
+  };
+
   return (
     <div style={{ padding: "1rem" }}>
       <h2>📸 Scanner Inteligente com Mindee</h2>
 
-      <div style={{ marginBott
+      <div style={{ marginBottom: "1rem" }}>
+        <button onClick={startCamera}>Ativar Câmera</button>
+        <button onClick={captureAndSend}>📷 Capturar</button>
+        <input type="file" accept=".pdf,image/*" onChange={handleFileChange} />
+      </div>
 
+      {/* Visual da câmera */}
+      <video ref={videoRef} autoPlay playsInline style={{ width: "100%", maxHeight: "300px" }} />
+      <canvas ref={canvasRef} style={{ display: "none" }} />
+
+      {/* Estado de carregamento */}
+      {loading && <p>🔄 Processando documento...</p>}
+
+      {/* Resultado formatado */}
+      {result && (
+        <div style={{ marginTop: "1rem" }}>
+          <h4>📄 Informações extraídas:</h4>
+          <ul>
+            <li><strong>Fornecedor:</strong> {extractField("supplier_name")}</li>
+            <li><strong>Número da Fatura:</strong> {extractField("invoice_number")}</li>
+            <li><strong>Data:</strong> {extractField("date")}</li>
+            <li><strong>Total (com impostos):</strong> {extractField("total_incl")}</li>
+          </ul>
+
+          <details style={{ marginTop: "1rem" }}>
+            <summary>📦 Ver JSON completo</summary>
+            <pre style={{ background: "#eee", padding: "1rem", whiteSpace: "pre-wrap" }}>
+              {JSON.stringify(result, null, 2)}
+            </pre>
+          </details>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default Scan;

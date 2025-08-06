@@ -1,7 +1,7 @@
 import React, { useRef, useState } from "react";
 
 // 🔐 API Key da Mindee
-const MINDEE_API_KEY = "md_k194wkbtmcx1ihmhmodzzdwutht4fney";
+const MINDEE_API_KEY = "md_0griu5818783nxj4cxzfreweemttekus"; // <- sua nova key
 
 const Scan = () => {
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -59,7 +59,7 @@ const Scan = () => {
 
     try {
       const response = await fetch(
-        "https://api.mindee.net/v1/products/mindee/invoice/v1/predict",
+        "https://api.mindee.net/v1/products/debiti/invoice/v1/predict", // <- nome correto do modelo
         {
           method: "POST",
           headers: {
@@ -84,11 +84,10 @@ const Scan = () => {
     }
   };
 
-  // 🔍 Extrair dados formatados do JSON da Mindee
+  // 🔍 Extrair campo do resultado
   const extractField = (fieldName: string) => {
     return (
-      result?.document?.inference?.prediction?.[fieldName]?.value ||
-      "Não encontrado"
+      result?.document?.inference?.prediction?.[fieldName]?.value || "Não encontrado"
     );
   };
 
@@ -102,14 +101,11 @@ const Scan = () => {
         <input type="file" accept=".pdf,image/*" onChange={handleFileChange} />
       </div>
 
-      {/* Visual da câmera */}
       <video ref={videoRef} autoPlay playsInline style={{ width: "100%", maxHeight: "300px" }} />
       <canvas ref={canvasRef} style={{ display: "none" }} />
 
-      {/* Estado de carregamento */}
       {loading && <p>🔄 Processando documento...</p>}
 
-      {/* Resultado formatado */}
       {result && (
         <div style={{ marginTop: "1rem" }}>
           <h4>📄 Informações extraídas:</h4>
@@ -133,3 +129,4 @@ const Scan = () => {
 };
 
 export default Scan;
+

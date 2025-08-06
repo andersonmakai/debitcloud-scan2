@@ -1,8 +1,7 @@
 import React, { useRef, useState } from "react";
 
-// 🔐 API Key e username da plataforma Mindee (https://app.mindee.com)
-const MINDEE_API_KEY = "md_ftkje0qmypgxpb5l91rpg7sz6pfluilu";
-const MINDEE_USERNAME = "andy9gg"; // aparece no canto superior direito do site da Mindee
+// 🔐 API Key da plataforma Mindee (https://app.mindee.com)
+const MINDEE_API_KEY = "md_ftkje0qmypgxpb5l91rpg7sz6pfluilu"; // substitua pela sua se mudar
 
 const Scan = () => {
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -60,7 +59,7 @@ const Scan = () => {
 
     try {
       const response = await fetch(
-        `https://api.mindee.com/v1/products/${MINDEE_USERNAME}/invoice/v1/predict`,
+        "https://api.mindee.net/v1/products/mindee/invoice/v1/predict",
         {
           method: "POST",
           headers: {
@@ -70,11 +69,17 @@ const Scan = () => {
         }
       );
 
+      if (!response.ok) {
+        const errorText = await response.text();
+        alert(`Erro ao enviar para o Mindee: ${response.status}\n${errorText}`);
+        return;
+      }
+
       const data = await response.json();
       const formatted = JSON.stringify(data, null, 2);
       setResult(formatted);
-    } catch (err) {
-      alert("Erro ao enviar para o Mindee.");
+    } catch (err: any) {
+      alert("Erro ao enviar para o Mindee: " + err.message);
     } finally {
       setLoading(false);
     }
@@ -109,3 +114,4 @@ const Scan = () => {
 };
 
 export default Scan;
+

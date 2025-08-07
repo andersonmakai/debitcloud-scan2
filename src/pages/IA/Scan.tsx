@@ -1,7 +1,7 @@
 import React, { useRef, useState } from "react";
 
-// 🔐 API Key da Mindee
-const MINDEE_API_KEY = "md_0griu5818783nxj4cxzfreweemttekus"; // <- sua nova key
+// ✅ API Key (pode continuar usando a gratuita enquanto for modelo oficial)
+const MINDEE_API_KEY = "md_0griu5818783nxj4cxzfreweemttekus"; // substitua se tiver outra
 
 const Scan = () => {
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -9,7 +9,6 @@ const Scan = () => {
   const [result, setResult] = useState<any>(null);
   const [loading, setLoading] = useState(false);
 
-  // 🟢 Ativar câmera
   const startCamera = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ video: true });
@@ -17,39 +16,33 @@ const Scan = () => {
         videoRef.current.srcObject = stream;
       }
     } catch (err) {
-      alert("Erro ao acessar a câmera");
+      alert("Erro ao acessar a câmera.");
     }
   };
 
-  // 📸 Capturar imagem da câmera
   const captureAndSend = async () => {
     if (!canvasRef.current || !videoRef.current) return;
 
-    const video = videoRef.current;
     const canvas = canvasRef.current;
+    const video = videoRef.current;
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
 
-    const context = canvas.getContext("2d");
-    if (!context) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
 
-    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
     canvas.toBlob(async (blob) => {
-      if (blob) {
-        await sendToMindee(blob);
-      }
+      if (blob) await sendToMindee(blob);
     }, "image/jpeg");
   };
 
-  // 📂 Upload manual de arquivo
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      await sendToMindee(file);
-    }
+    if (file) await sendToMindee(file);
   };
 
-  // 🚀 Enviar para a Mindee
+  // ✅ USANDO MODELO PADRÃO OFICIAL DA MINDEE (invoice v1)
   const sendToMindee = async (file: Blob) => {
     setLoading(true);
     setResult(null);
@@ -58,67 +51,62 @@ const Scan = () => {
     formData.append("document", file);
 
     try {
-      const response = await fetch(
-        "https://api.mindee.net/v1/products/debiti/invoice/v1/predict", // <- nome correto do modelo
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Token ${MINDEE_API_KEY}`,
-          },
-          body: formData,
-        }
-      );
+      const response = await fetch("https://api.mindee.net/v1/products/mindee/invoice/v1/predict", {
+        method: "POST",
+        headers: {
+          Authorization: `Token ${MINDEE_API_KEY}`,
+        },
+        body: formData,
+      });
 
       if (!response.ok) {
-        const errorText = await response.text();
-        alert(`Erro ao enviar para o Mindee: ${response.status}\n${errorText}`);
+        const error = await response.text();
+        alert(`Erro: ${response.status}\n${error}`);
         return;
       }
 
       const data = await response.json();
       setResult(data);
-    } catch (err: any) {
-      alert("Erro ao enviar para o Mindee: " + err.message);
+    } catch (error: any) {
+      alert("Erro ao enviar para a Mindee: " + error.message);
     } finally {
       setLoading(false);
     }
   };
 
-  // 🔍 Extrair campo do resultado
-  const extractField = (fieldName: string) => {
-    return (
-      result?.document?.inference?.prediction?.[fieldName]?.value || "Não encontrado"
-    );
+  const extractField = (field: string) => {
+    return result?.document?.inference?.prediction?.[field]?.value || "Não encontrado";
   };
 
   return (
     <div style={{ padding: "1rem" }}>
-      <h2>📸 Scanner Inteligente com Mindee</h2>
+      <h2>📄 Scanner de Faturas (Modelo Gratuito Mindee)</h2>
 
-      <div style={{ marginBottom: "1rem" }}>
-        <button onClick={startCamera}>Ativar Câmera</button>
-        <button onClick={captureAndSend}>📷 Capturar</button>
-        <input type="file" accept=".pdf,image/*" onChange={handleFileChange} />
+      <div>
+        <button onClick={startCamera}>🎥 Ativar Câmera</button>
+        <button onClick={captureAndSend}>📷 Capturar Imagem</button>
+        <input type="file" accept="application/pdf,image/*" onChange={handleFileChange} />
       </div>
 
       <video ref={videoRef} autoPlay playsInline style={{ width: "100%", maxHeight: "300px" }} />
       <canvas ref={canvasRef} style={{ display: "none" }} />
 
-      {loading && <p>🔄 Processando documento...</p>}
+      {loading && <p>⏳ Processando documento...</p>}
 
       {result && (
-        <div style={{ marginTop: "1rem" }}>
-          <h4>📄 Informações extraídas:</h4>
+        <div>
+          <h3>🔎 Resultado:</h3>
           <ul>
-            <li><strong>Fornecedor:</strong> {extractField("supplier_name")}</li>
-            <li><strong>Número da Fatura:</strong> {extractField("invoice_number")}</li>
-            <li><strong>Data:</strong> {extractField("date")}</li>
-            <li><strong>Total (com impostos):</strong> {extractField("total_incl")}</li>
+            <li><b>Fornecedor:</b> {extractField("supplier_name")}</li>
+            <li><b>Cliente:</b> {extractField("customer_name")}</li>
+            <li><b>Data:</b> {extractField("date")}</li>
+            <li><b>Total:</b> {extractField("total_amount")}</li>
+            <li><b>Número da Fatura:</b> {extractField("invoice_number")}</li>
           </ul>
 
-          <details style={{ marginTop: "1rem" }}>
+          <details>
             <summary>📦 Ver JSON completo</summary>
-            <pre style={{ background: "#eee", padding: "1rem", whiteSpace: "pre-wrap" }}>
+            <pre style={{ whiteSpace: "pre-wrap", background: "#eee", padding: "1rem" }}>
               {JSON.stringify(result, null, 2)}
             </pre>
           </details>
